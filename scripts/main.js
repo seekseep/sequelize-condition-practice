@@ -13,7 +13,7 @@ function showOrder (order) {
   ]).trim())
 
   const data = [
-    ['行番号', '指定方法', '商品分類', '商品名', '数量']
+    ['行番号', '指定方法', '商品分類', '商品名']
   ]
 
   for (let i = 0; i < order.orderDetails.length; i++) {
@@ -23,14 +23,12 @@ function showOrder (order) {
     const referedItemGroup = referedItem?.itemGroup;
     const itemName = referedItem?.name ?? detail.itemName;
     const itemGroupName = referedItemGroup?.name ?? detail.itemGroupName;
-    const amount = detail.amount
     const specifiedMethod = referedItem ? 'ID' : '名称'
     data.push([
       index,
       specifiedMethod,
       itemGroupName,
       itemName,
-      amount
     ])
   }
   console.log(table(data))
@@ -51,7 +49,6 @@ async function requestFilterOptions ({users, itemGroups}) {
   const defaultItemGroupName = itemGroups?.[0]?.name ?? 'Games';
   const inputtedItemGroupName = await inquirer.input({
     message: '商品分類名を入力してください',
-    default: defaultItemGroupName
   })
 
   return {
@@ -70,7 +67,7 @@ async function requestFilterOptions ({users, itemGroups}) {
       itemGroups
     });
 
-    const itemGroupNameCondition = { [Op.like]: `%${itemGroupName}%` }
+    const itemGroupNameCondition = itemGroupName ? { [Op.like]: `%${itemGroupName}%` } : null;
 
     const orders = await Order.findAll({
       attributes: ['id', 'createdAt'],
@@ -80,15 +77,15 @@ async function requestFilterOptions ({users, itemGroups}) {
       include: [{
         model: OrderDetail,
         as: 'orderDetails',
-        attributes: ["itemName", "itemGroupName", "amount"],
+        attributes: ["itemName", "itemGroupName"],
         required: true,
-        where: {
+        where: itemGroupNameCondition ? {
           [Op.or]: [{
             itemGroupName: itemGroupNameCondition
           }, {
             '$orderDetails.item.itemGroup.name$': itemGroupNameCondition
           }]
-        },
+        } : null,
         include: [{
           model: Item,
           as: 'item',
@@ -106,7 +103,7 @@ async function requestFilterOptions ({users, itemGroups}) {
 
     const confirmed = await inquirer.confirm({
       message: '注文を表示しますか？',
-      default: false,
+      default: true,
     });
     if (!confirmed) return;
 

@@ -11,126 +11,62 @@ const {
   OrderDetail,
 } = require('../models');
 
-async function requestSetupOptions () {
-  const defaultUserCount = 3;
-  const defaultItemGroupCount = 3;
-  const defaultItemCountPerGroup = 100;
-  const defaultOrderTermStart = startOfMonth(sub(new Date(), { months: 1 }));
-  const defaultOrderTermEnd = endOfMonth(sub(new Date(), { months: 1 }));
-  const defaultOrderDetailMinCount = 2;
-  const defaultOrderDetailMaxCount = 5;
-
-  console.info('データ作成の条件');
-  console.info(`ユーザー: ${defaultUserCount}人`);
-  console.info(`商品分類: ${defaultItemGroupCount}個`);
-  console.info(`商品分類ごとの商品: ${defaultItemCountPerGroup}個`);
-  console.info(`注文作成の期間: ${format(defaultOrderTermStart, 'yyyy-MM-dd')} 〜 ${format(defaultOrderTermEnd, 'yyyy-MM-dd')}`);
-  console.info(`注文詳細の数: ${defaultOrderDetailMinCount} 〜 ${defaultOrderDetailMaxCount}個`);
-
-  const isConfirmed = await inquirer.confirm({
-    message: '上記の内容でデータを作成しますか？',
-    default: true,
-  })
-
-  if (isConfirmed) {
-    return {
-      userCount: defaultUserCount,
-      itemGroupCount: defaultItemGroupCount,
-      itemCountPerGroup: defaultItemCountPerGroup,
-      orderTermStart: defaultOrderTermStart,
-      orderTermEnd: defaultOrderTermEnd,
-      orderDetailMinCount: defaultOrderDetailMinCount,
-      orderDetailMaxCount: defaultOrderDetailMaxCount,
-    }
-  }
-
-  const userCount = await inquirer.number({
-    message: 'ユーザーをいくつ作成しますか？',
-    default: defaultUserCount
-  });
-  const itemGroupCount = await inquirer.number({
-    message: '商品分類をいくつ作成しますか？',
-    default: defaultItemGroupCount
-  });
-  const itemCountPerGroup = await inquirer.number({
-    message: '商品分類ごとの商品をいくつ作成しますか？',
-    default: defaultItemCountPerGroup
-  });
-  const defaultOrderTermStartText = format(startOfMonth(sub(new Date(), { months: 1 })), 'yyyy-MM-dd');
-  const defaultOrderTermEndText = format(endOfMonth(sub(new Date(), { months: 1 })), 'yyyy-MM-dd');
-
-  const orderTermStartText = await inquirer.input({
-    message: '注文作成の開始日を入力してください。',
-    default: defaultOrderTermStartText,
-  })
-  const orderTermStart = new Date(orderTermStartText);
-
-  const orderTermEndText = await inquirer.input({
-    message: '注文作成の終了日を入力してください。',
-    default: defaultOrderTermEndText,
-  });
-  const orderTermEnd = new Date(orderTermEndText);
-
-  const orderDetailMinCount = await inquirer.number({
-    message: '注文詳細の最小数を入力してください。',
-    default: defaultOrderDetailMinCount
-  });
-  const orderDetailMaxCount = await inquirer.number({
-    message: '注文詳細の最大数を入力してください。',
-    default: defaultOrderDetailMaxCount
-  });
-
-  return {
-    userCount,
-    itemGroupCount,
-    itemCountPerGroup,
-    orderTermStart,
-    orderTermEnd,
-    orderDetailMinCount,
-    orderDetailMaxCount,
-  }
-}
-
-
 (async () => {
 
-  const users = [];
-  const itemGroups = [];
-  const items = [];
-  const itemGroupById = {};
-
-  // NOTE: 商品の指定をランダムにする
-  function getItemSpecification () {
-    const specifiedAsId = Math.random() > 0.2;
-    if (specifiedAsId) {
-      const item = faker.helpers.arrayElement(items);
-      return {
-        itemId: item.id,
-        itemName: null,
-        itemGroupName: null,
-      };
+  const userNames = [
+    "山田 太郎",
+    "田中 花子",
+    "佐藤 次郎",
+    "鈴木 三郎",
+  ];
+  const itemGroupInputs = [
+    {
+      id: 1,
+      name: "ゲーム",
+      itemNames: [
+        "スプラトゥーン",
+        "モンスターハンター",
+        "ドラゴンクエスト",
+        "ファイナルファンタジー",
+        "ゼルダの伝説",
+      ]
+    },
+    {
+      id: 2,
+      name: "食品",
+      itemNames: [
+        "りんご",
+        "バナナ",
+        "ぶどう",
+        "いちご",
+        "みかん",
+      ]
+    },
+    {
+      id: 3,
+      name: "家電",
+      itemNames: [
+        "テレビ",
+        "冷蔵庫",
+        "洗濯機",
+        "掃除機",
+        "エアコン",
+      ]
+    },
+    {
+      id: 4,
+      name: "書籍",
+      itemNames: [
+        "ハリーポッター",
+        "名探偵コナン",
+        "鬼滅の刃",
+        "ONE PIECE",
+        "NARUTO",
+      ]
     }
-
-    const item = faker.helpers.arrayElement(items);
-
-    return {
-      itemId: null,
-      itemName: item.name,
-      itemGroupName: itemGroupById[item.itemGroupId].name,
-    }
-  }
+  ]
 
   try {
-    const {
-      userCount,
-      itemGroupCount,
-      itemCountPerGroup,
-      orderTermStart,
-      orderTermEnd,
-      orderDetailMinCount,
-      orderDetailMaxCount,
-    } = await requestSetupOptions();
-
     await sequelize.sync({ force: true });
     console.log('Database synced.');
     await User.destroy({ truncate: true });
@@ -144,70 +80,99 @@ async function requestSetupOptions () {
     await OrderDetail.destroy({ truncate: true });
     console.info(`Succeed to destroy OrderDetail`);
 
-    // NOTE: User
-    for (let i = 0; i < userCount; i++) {
-      const user = await User.create({
-        name: faker.person.fullName(),
-        email: faker.internet.email(),
-      })
-      users.push(user);
+    const userById = {}
+    const itemById = {}
+    const itemByGroupIdAndId = {}
+    const itemsByGroupId = {}
+    const itemGroupById = {}
+
+    for (const name of userNames) {
+      const user = await User.create({ name });
+      userById[user.id] = user;
     }
 
-    // NOTE: ItemGroup
-    for (let i = 0; i < itemGroupCount; i++) {
+    for (const itemGroupInput of itemGroupInputs) {
       const itemGroup = await ItemGroup.create({
-        name: faker.commerce.department(),
+        id: itemGroupInput.id,
+        name: itemGroupInput.name
       });
-      itemGroups.push(itemGroup);
       itemGroupById[itemGroup.id] = itemGroup;
-
-      // NOTE: Item
-      for (let i = 1; i <= itemCountPerGroup; i++) {
-        const item = await Item.create({
-          name: faker.commerce.productName(),
-          itemGroupId: itemGroup.id
-        });
-        items.push(item);
+      itemsByGroupId[itemGroup.id] = [];
+      for (const itemName of itemGroupInput.itemNames) {
+        const item = await Item.create({ name: itemName, itemGroupId: itemGroup.id });
+        itemById[item.id] = item;
+        itemsByGroupId[itemGroup.id].push(item);
       }
     }
 
-    // NOTE: Order
-    for (let createdAt = orderTermStart ; createdAt <= orderTermEnd; createdAt = add(createdAt, { days: 1 })) {
-      console.info(`${format(createdAt, 'yyyy-MM-dd')}の注文を作成中...`);
 
-      const user = faker.helpers.arrayElement(users);
-      const order = await Order.create({
-        userId: user.id,
-        createdAt
-      });
+    function createOrderDetailInput (method, itemGroupId, itemIndex) {
+      const asId = method === 'id';
+      const items = itemsByGroupId[itemGroupId];
+      const item = items[itemIndex]
+      const itemGroup = itemGroupById[itemGroupId]
+      if (asId) {
+        const orderDetailInput = {
+          itemId: item.id,
+          itemName: null,
+          itemGroupName: null,
+        }
+        return orderDetailInput
+      }
+      const orderDetailInput = {
+        itemId: null,
+        itemName: item.name,
+        itemGroupName: itemGroup.name,
+      }
+      return orderDetailInput
+    }
 
-      const orderId = order.id;
-      const orderDetailCount = faker.number.int({
-        min: orderDetailMinCount,
-        max: orderDetailMaxCount
-      });
-      for (let j = 0; j < orderDetailCount; j++) {
-        const {
-          itemId,
-          itemName,
-          itemGroupName,
-        } = getItemSpecification()
+    function createOrderInput(userId, detailInputs) {
+      const orderInput = {
+        userId,
+        detailInputs,
+      }
+      return orderInput
+    }
 
-        const index = j + 1;
-        const amount = faker.number.int({ min: 1, max: 999 });
-
+    async function createOrder (input) {
+      const { userId, detailInputs } = input
+      const order = await Order.create({ userId });
+      for (const detailInput of detailInputs) {
+        const { itemId, itemName, itemGroupName } = detailInput
         await OrderDetail.create({
-          index,
-          amount,
-          orderId,
+          orderId: order.id,
           itemId,
           itemName,
           itemGroupName,
-          createdAt,
-
         });
       }
     }
+
+
+    const o = createOrderInput
+    const d = createOrderDetailInput
+
+    const orderInputs = [
+      // NOTE: itemGroupId=1 (ゲーム) を1つ以上持つ
+      o(1, [d('id', 1, 0), d('id', 2, 0), d('id', 3, 0)]),
+      o(1, [d('name', 1, 1), d('name', 2, 1), d('name', 3, 1)]),
+      o(1, [d('name', 1, 1), d('id', 2, 1), d('name', 3, 1), d('id', 4, 1)]),
+      o(1, [d('id', 1, 2), d('id', 2, 2), d('id', 3, 2)]),
+
+      // NOTE: itemGroupId=1 (ゲーム) を持たない
+      o(1, [d('name', 2, 3), d('name', 3, 3), d('id', 4, 3)]),
+      o(1, [d('name', 2, 4), d('id', 3, 4), d('name', 2, 4)]),
+      o(1, [d('id', 2, 3), d('name', 2, 3), d('id', 4, 3)]),
+      o(1, [d('id', 3, 3), d('name', 4, 3), d('id', 3, 3)]),
+
+      // NOTE: 他のユーザー
+      o(2, [d('id', 1, 0), d('id', 2, 0), d('id', 3, 0)]),
+      o(3, [d('name', 1, 1), d('name', 2, 1), d('name', 3, 1)]),
+      o(4, [d('name', 1, 1), d('name', 2, 1), d('name', 3, 1)]),
+    ]
+    for (const input of orderInputs) await createOrder(input)
+
   } catch (error) {
     console.error('Error syncing database:', error);
   } finally {
