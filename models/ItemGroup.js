@@ -11,14 +11,10 @@ const ItemGroup = sequelize.define('ItemGroup', {
     type: DataTypes.STRING,
     allowNull: false,
   },
-  createdAt: {
-    type: DataTypes.DATE,
-    allowNull: false,
-    defaultValue: DataTypes.NOW,
-  },
 }, {
   tableName: 'ItemGroups',
   freezeTableName: false,
+  timestamps: false,
 });
 
 module.exports = ItemGroup
