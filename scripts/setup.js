@@ -1,4 +1,4 @@
-const { faker } = require('@faker-js/faker');
+const { faker, de } = require('@faker-js/faker');
 const { startOfMonth, endOfMonth, sub, add, format } = require('date-fns');
 const inquirer = require('@inquirer/prompts');
 
@@ -11,18 +11,50 @@ const {
   OrderDetail,
 } = require('../models');
 
-(async () => {
+async function requestSetupOptions () {
+  const defaultUserCount = 3;
+  const defaultItemGroupCount = 3;
+  const defaultItemCountPerGroup = 100;
+  const defaultOrderTermStart = startOfMonth(sub(new Date(), { months: 1 }));
+  const defaultOrderTermEnd = endOfMonth(sub(new Date(), { months: 1 }));
+  const defaultOrderDetailMinCount = 2;
+  const defaultOrderDetailMaxCount = 5;
+
+  console.info('データ作成の条件');
+  console.info(`ユーザー: ${defaultUserCount}人`);
+  console.info(`商品分類: ${defaultItemGroupCount}個`);
+  console.info(`商品分類ごとの商品: ${defaultItemCountPerGroup}個`);
+  console.info(`注文作成の期間: ${format(defaultOrderTermStart, 'yyyy-MM-dd')} 〜 ${format(defaultOrderTermEnd, 'yyyy-MM-dd')}`);
+  console.info(`注文詳細の数: ${defaultOrderDetailMinCount} 〜 ${defaultOrderDetailMaxCount}個`);
+
+  const isConfirmed = await inquirer.confirm({
+    message: '上記の内容でデータを作成しますか？',
+    default: true,
+  })
+
+  if (isConfirmed) {
+    return {
+      userCount: defaultUserCount,
+      itemGroupCount: defaultItemGroupCount,
+      itemCountPerGroup: defaultItemCountPerGroup,
+      orderTermStart: defaultOrderTermStart,
+      orderTermEnd: defaultOrderTermEnd,
+      orderDetailMinCount: defaultOrderDetailMinCount,
+      orderDetailMaxCount: defaultOrderDetailMaxCount,
+    }
+  }
+
   const userCount = await inquirer.number({
     message: 'ユーザーをいくつ作成しますか？',
-    default: 3
+    default: defaultUserCount
   });
   const itemGroupCount = await inquirer.number({
     message: '商品分類をいくつ作成しますか？',
-    default: 3
+    default: defaultItemGroupCount
   });
   const itemCountPerGroup = await inquirer.number({
     message: '商品分類ごとの商品をいくつ作成しますか？',
-    default: 100
+    default: defaultItemCountPerGroup
   });
   const defaultOrderTermStartText = format(startOfMonth(sub(new Date(), { months: 1 })), 'yyyy-MM-dd');
   const defaultOrderTermEndText = format(endOfMonth(sub(new Date(), { months: 1 })), 'yyyy-MM-dd');
@@ -41,12 +73,26 @@ const {
 
   const orderDetailMinCount = await inquirer.number({
     message: '注文詳細の最小数を入力してください。',
-    default: 2
+    default: defaultOrderDetailMinCount
   });
   const orderDetailMaxCount = await inquirer.number({
     message: '注文詳細の最大数を入力してください。',
-    default: 5
+    default: defaultOrderDetailMaxCount
   });
+
+  return {
+    userCount,
+    itemGroupCount,
+    itemCountPerGroup,
+    orderTermStart,
+    orderTermEnd,
+    orderDetailMinCount,
+    orderDetailMaxCount,
+  }
+}
+
+
+(async () => {
 
   const users = [];
   const itemGroups = [];
@@ -75,6 +121,16 @@ const {
   }
 
   try {
+    const {
+      userCount,
+      itemGroupCount,
+      itemCountPerGroup,
+      orderTermStart,
+      orderTermEnd,
+      orderDetailMinCount,
+      orderDetailMaxCount,
+    } = await requestSetupOptions();
+
     await sequelize.sync({ force: true });
     console.log('Database synced.');
     await User.destroy({ truncate: true });
@@ -86,7 +142,7 @@ const {
     await Order.destroy({ truncate: true });
     console.info(`Succeed to destroy Order`)
     await OrderDetail.destroy({ truncate: true });
-    console.info(`Succeed to destroy OrderDetail`)
+    console.info(`Succeed to destroy OrderDetail`);
 
     // NOTE: User
     for (let i = 0; i < userCount; i++) {
