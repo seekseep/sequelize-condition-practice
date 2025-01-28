@@ -1,4 +1,4 @@
-const { Op, where } = require('sequelize');
+const { Op, literal } = require('sequelize');
 const inquirer = require('@inquirer/prompts');
 const { table } = require('table');
 const { format } = require('date-fns');
@@ -49,6 +49,7 @@ async function requestFilterOptions ({users, itemGroups}) {
   const defaultItemGroupName = itemGroups?.[0]?.name ?? 'Games';
   const inputtedItemGroupName = await inquirer.input({
     message: '商品分類名を入力してください',
+    default: defaultItemGroupName,
   })
 
   return {
@@ -56,6 +57,49 @@ async function requestFilterOptions ({users, itemGroups}) {
     itemGroupName: inputtedItemGroupName
   }
 }
+
+async function listOrders ({
+  userId, offset = 0, limit = 5, itemGroupName
+}) {
+  const { count, rows: orders } = await Order.findAndCountAll({
+    attributes: ['id', 'createdAt'],
+    where: {
+      userId: { [Op.eq]: userId },
+    },
+    include: [{
+      model: OrderDetail,
+      as: 'orderDetails',
+      attributes: ["itemName", "itemGroupName"],
+      required: true,
+      where: {
+        [Op.or]: [
+          { itemGroupName: { [Op.like]: `%${itemGroupName}%` } },
+          literal(`EXISTS (
+            SELECT 1 FROM Items AS item
+            INNER JOIN ItemGroups AS itemGroup ON item.itemGroupId = itemGroup.id
+            WHERE itemGroup.name LIKE '%${itemGroupName}%'
+            AND item.id = orderDetails.itemId
+          )`),
+        ]
+      },
+      include: [{
+        model: Item,
+        as: 'item',
+        attributes: ['name'],
+        include: [{
+          model: ItemGroup,
+          as: 'itemGroup',
+          attributes: ['name'],
+        }]
+      }],
+    }],
+    limit,
+    offset
+  });
+
+  return { count, orders };
+}
+
 
 (async () => {
   try {
@@ -67,47 +111,25 @@ async function requestFilterOptions ({users, itemGroups}) {
       itemGroups
     });
 
-    const itemGroupNameCondition = itemGroupName ? { [Op.like]: `%${itemGroupName}%` } : null;
+    let nextExists = true;
+    const limit = 5;
+    let offset = 0;
+    while (nextExists) {
+      const { count, orders } = await listOrders({ userId, itemGroupName, limit, offset });
+      for (const order of orders) showOrder(order);
+      console.log(`全${count}件中${offset + 1}件〜${offset + orders.length}件を表示中`);
 
-    const orders = await Order.findAll({
-      attributes: ['id', 'createdAt'],
-      where: {
-        userId: { [Op.eq]: userId }
-      },
-      include: [{
-        model: OrderDetail,
-        as: 'orderDetails',
-        attributes: ["itemName", "itemGroupName"],
-        required: true,
-        where: itemGroupNameCondition ? {
-          [Op.or]: [{
-            itemGroupName: itemGroupNameCondition
-          }, {
-            '$orderDetails.item.itemGroup.name$': itemGroupNameCondition
-          }]
-        } : null,
-        include: [{
-          model: Item,
-          as: 'item',
-          attributes: ['name'],
-          include: [{
-            model: ItemGroup,
-            as: 'itemGroup',
-            attributes: ['name'],
-          }]
-        }],
-      }],
-    });
+      offset += limit;
+      nextExists = count > offset;
 
-    console.info(`${orders.length}件の注文が見つかりました`);
-
-    const confirmed = await inquirer.confirm({
-      message: '注文を表示しますか？',
-      default: true,
-    });
-    if (!confirmed) return;
-
-    for (const order of orders) showOrder(order);
+      if (nextExists) {
+        const next = await inquirer.confirm({
+          message: '次のページを表示しますか？',
+          default: true,
+        })
+        if (!next) break
+      }
+    }
   } catch (error) {
     console.error('Error fetching orders:', error);
   } finally {

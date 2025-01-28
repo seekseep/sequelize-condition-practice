@@ -155,10 +155,16 @@ const {
 
     const orderInputs = [
       // NOTE: itemGroupId=1 (ゲーム) を1つ以上持つ
-      o(1, [d('id', 1, 0), d('id', 2, 0), d('id', 3, 0)]),
+      o(1, [d('id', 1, 0), d('id', 2, 0), d('id', 3, 4)]),
       o(1, [d('name', 1, 1), d('name', 2, 1), d('name', 3, 1)]),
-      o(1, [d('name', 1, 1), d('id', 2, 1), d('name', 3, 1), d('id', 4, 1)]),
+      o(1, [d('name', 1, 1), d('id', 2, 1), d('name', 3, 3), d('id', 4, 1)]),
       o(1, [d('id', 1, 2), d('id', 2, 2), d('id', 3, 2)]),
+      o(1, [d('name', 1, 1), d('id', 3, 1), d('name', 4, 1), d('id', 4, 1)]),
+      o(1, [d('id', 1, 0), d('id', 2, 0), d('id', 3, 0)]),
+      o(1, [d('name', 1, 1), d('name', 4, 1), d('name', 2, 1)]),
+      o(1, [d('name', 1, 1), d('name', 2, 1), d('name', 2, 2)]),
+      o(1, [d('id', 1, 2), d('id', 4, 2), d('id', 2, 2)]),
+      o(1, [d('name', 1, 1), d('name', 4, 1), d('name', 2, 1)]),
 
       // NOTE: itemGroupId=1 (ゲーム) を持たない
       o(1, [d('name', 2, 3), d('name', 3, 3), d('id', 4, 3)]),
